@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LEXICON BLASTER</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cyan: #00f5ff;
+            --pink: #ff006e;
+            --amber: #ffbe0b;
+            --green: #06d6a0;
+            --bg: #050a12;
+            --panel: rgba(0, 10, 20, 0.92);
+            --border: rgba(0, 245, 255, 0.3);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: white;
+            font-family: 'Share Tech Mono', monospace;
+            overflow: hidden;
+            touch-action: manipulation;
+            user-select: none;
+        }
+
+        /* ── BACKGROUND ── */
+        #bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,245,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,245,255,0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: gridScroll 6s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+        @keyframes gridScroll {
+            0%   { background-position: 0 0; }
+            100% { background-position: 0 40px; }
+        }
+        #scanlines {
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent,
+                transparent 3px,
+                rgba(0,0,0,0.18) 3px,
+                rgba(0,0,0,0.18) 4px
+            );
+            pointer-events: none;
+            z-index: 1;
+        }
+        #vignette {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* ── GAME SCREEN ── */
+        #game-screen {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            z-index: 10;
+        }
+
+        /* ── HUD ── */
+        #hud {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, transparent 100%);
+            border-bottom: 1px solid var(--border);
+        }
+        #hud::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            animation: scanH 3s ease-in-out infinite;
+        }
+        @keyframes scanH {
+            0%,100% { opacity: 0.3; }
+            50%      { opacity: 1; }
+        }
+
+        .hud-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .hud-label {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.45rem;
+            color: rgba(255,255,255,0.35);
+            letter-spacing: 2px;
+        }
+        #score-val {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: var(--cyan);
+            text-shadow: 0 0 20px var(--cyan), 0 0 40px rgba(0,245,255,0.4);
+            letter-spacing: 2px;
+        }
+        #life-val {
+            font-size: 1.1rem;
+            letter-spacing: 4px;
+            filter: drop-shadow(0 0 6px #ff006e);
+        }
+        #combo-val {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.55rem;
+            color: var(--amber);
+            text-shadow: 0 0 10px var(--amber);
+            min-width: 60px;
+            text-align: center;
+        }
+
+        /* ── TITLE LOGO ── */
+        #logo {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.55rem;
+            color: var(--cyan);
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px var(--cyan);
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        /* ── ENEMY ── */
+        .enemy {
+            position: absolute;
+            width: 160px;
+            text-align: center;
+            transform: translateX(-50%);
+            z-index: 50;
+            filter: drop-shadow(0 0 12px var(--cyan));
+        }
+        .enemy-inner {
+            position: relative;
+        }
+        .enemy-box {
+            background: linear-gradient(135deg, rgba(0,20,35,0.97) 0%, rgba(0,10,25,0.97) 100%);
+            border: 1px solid var(--cyan);
+            border-radius: 6px;
+            padding: 12px 14px 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        .enemy-box::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0,245,255,0.08) 0%, transparent 60%);
+        }
+        .enemy-box::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+        }
+        .corner {
+            position: absolute;
+            width: 8px; height: 8px;
+            border-color: var(--cyan);
+            border-style: solid;
+        }
+        .corner-tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+        .corner-tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+        .corner-bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+        .corner-br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+        .target-type {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.42rem;
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+        .type-syn  { background: rgba(6,214,160,0.15); color: var(--green);  border: 1px solid rgba(6,214,160,0.4); }
+        .type-ant  { background: rgba(255,0,110,0.15);  color: var(--pink);  border: 1px solid rgba(255,0,110,0.4); }
+
+        .target-word {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #fff;
+            display: block;
+            letter-spacing: 1px;
+        }
+
+        /* enemy health bar */
+        .enemy-bar-wrap {
+            height: 3px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .enemy-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--cyan), var(--pink));
+            border-radius: 2px;
+            width: 100%;
+            transform-origin: left;
+            animation: barDrain linear forwards;
+        }
+
+        /* ── CONTROLLER ── */
+        #controller {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 36%;
+            padding: 12px 14px 16px;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+            z-index: 200;
+            background: linear-gradient(to top, rgba(0,0,0,0.98) 60%, transparent 100%);
+            border-top: 1px solid var(--border);
+        }
+        #controller::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--cyan) 30%, var(--pink) 70%, transparent);
+        }
+
+        .choice-btn {
+            background: linear-gradient(145deg, #0d1f2d 0%, #081520 100%);
+            border: 1px solid rgba(0,245,255,0.25);
+            color: #c8e8f0;
+            border-radius: 10px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            transition: all 0.08s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .choice-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0,245,255,0.1), transparent);
+            transition: left 0.3s ease;
+        }
+        .choice-btn:hover::before { left: 100%; }
+        .choice-btn:active {
+            background: linear-gradient(145deg, rgba(0,245,255,0.2), rgba(0,245,255,0.05));
+            border-color: var(--cyan);
+            color: var(--cyan);
+            transform: scale(0.96);
+            box-shadow: 0 0 20px rgba(0,245,255,0.3), inset 0 0 10px rgba(0,245,255,0.1);
+        }
+        .choice-btn.correct {
+            background: linear-gradient(145deg, rgba(6,214,160,0.25), rgba(6,214,160,0.1));
+            border-color: var(--green);
+            color: var(--green);
+            box-shadow: 0 0 25px rgba(6,214,160,0.4);
+        }
+        .choice-btn.wrong {
+            background: linear-gradient(145deg, rgba(255,0,110,0.25), rgba(255,0,110,0.1));
+            border-color: var(--pink);
+            color: var(--pink);
+            box-shadow: 0 0 25px rgba(255,0,110,0.4);
+        }
+
+        /* ── OVERLAY ── */
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            gap: 20px;
+        }
+        #overlay-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.3rem;
+            color: var(--pink);
+            text-shadow: 0 0 30px var(--pink), 0 0 60px rgba(255,0,110,0.4);
+            text-align: center;
+            line-height: 1.8;
+            animation: glitch 2s ease-in-out infinite;
+        }
+        @keyframes glitch {
+            0%,90%,100% { text-shadow: 0 0 30px var(--pink), 0 0 60px rgba(255,0,110,0.4); transform: none; }
+            92%  { transform: translate(-2px, 0); text-shadow: 2px 0 var(--cyan), 0 0 30px var(--pink); }
+            94%  { transform: translate(2px, 0);  text-shadow: -2px 0 var(--amber), 0 0 30px var(--pink); }
+            96%  { transform: none; }
+        }
+        .overlay-stat {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1rem;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 2px;
+        }
+        .overlay-stat span {
+            color: var(--cyan);
+            font-size: 1.6rem;
+            font-weight: 900;
+            text-shadow: 0 0 15px var(--cyan);
+        }
+        #restart-btn {
+            margin-top: 10px;
+            padding: 14px 36px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7rem;
+            background: transparent;
+            border: 2px solid var(--cyan);
+            color: var(--cyan);
+            border-radius: 6px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--cyan);
+            box-shadow: 0 0 20px rgba(0,245,255,0.2), inset 0 0 20px rgba(0,245,255,0.05);
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        #restart-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0,245,255,0.1), transparent);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        #restart-btn:hover {
+            background: rgba(0,245,255,0.1);
+            box-shadow: 0 0 40px rgba(0,245,255,0.4);
+        }
+        #restart-btn:hover::after { opacity: 1; }
+
+        /* ── PARTICLES ── */
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 60;
+            animation: particleFly 0.6s ease-out forwards;
+        }
+        @keyframes particleFly {
+            0%   { opacity: 1; transform: translate(0,0) scale(1); }
+            100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+        }
+
+        /* ── FLOATING SCORE ── */
+        .float-score {
+            position: absolute;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7rem;
+            color: var(--amber);
+            text-shadow: 0 0 10px var(--amber);
+            pointer-events: none;
+            z-index: 60;
+            animation: floatUp 0.8s ease-out forwards;
+        }
+        @keyframes floatUp {
+            0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-50px); }
+        }
+
+        /* ── GLITCH SCREEN FLASH ── */
+        #flash {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 500;
+            opacity: 0;
+        }
+        #flash.red  { background: rgba(255,0,110,0.18); animation: flashOut 0.3s ease-out forwards; }
+        #flash.good { background: rgba(6,214,160,0.12);  animation: flashOut 0.3s ease-out forwards; }
+        @keyframes flashOut { 0% { opacity:1; } 100% { opacity:0; } }
+    </style>
+</head>
+<body>
+
+<div id="bg-grid"></div>
+<div id="scanlines"></div>
+<div id="vignette"></div>
+
+<div id="game-screen">
+    <div id="flash"></div>
+
+    <div id="hud">
+        <div class="hud-block">
+            <div class="hud-label">SCORE</div>
+            <div id="score-val">0</div>
+        </div>
+        <div id="logo">LEXICON<br>BLASTER</div>
+        <div class="hud-block">
+            <div class="hud-label">COMBO</div>
+            <div id="combo-val">×1</div>
+        </div>
+        <div class="hud-block">
+            <div class="hud-label">LIVES</div>
+            <div id="life-val">❤️❤️❤️❤️❤️</div>
+        </div>
+    </div>
+
+    <div id="overlay">
+        <div id="overlay-title">MISSION<br>FAILED</div>
+        <div class="overlay-stat">FINAL SCORE <span id="final-score">0</span></div>
+        <button id="restart-btn" onclick="location.reload()">▶ RETRY</button>
+    </div>
+
+    <div id="controller">
+        <button class="choice-btn" onclick="checkAnswer(this)">-</button>
+        <button class="choice-btn" onclick="checkAnswer(this)">-</button>
+        <button class="choice-btn" onclick="checkAnswer(this)">-</button>
+        <button class="choice-btn" onclick="checkAnswer(this)">-</button>
+    </div>
+</div>
+
+<script>
+const wordData = [
+    {q: "Abandon", type: "유의어", ans: "Desert", wrong: ["Keep", "Maintain", "Stay"]},
+    {q: "Abbreviate", type: "반의어", ans: "Lengthen", wrong: ["Shorten", "Abridge", "Cut"]},
+    {q: "Ability", type: "유의어", ans: "Capacity", wrong: ["Inability", "Weakness", "Failure"]},
+    {q: "Abrupt", type: "반의어", ans: "Gradual", wrong: ["Sudden", "Blunt", "Quick"]},
+    {q: "Abundant", type: "유의어", ans: "Plentiful", wrong: ["Scarce", "Rare", "Poor"]},
+    {q: "Accept", type: "반의어", ans: "Reject", wrong: ["Admit", "Take", "Allow"]},
+    {q: "Accurate", type: "유의어", ans: "Precise", wrong: ["Wrong", "False", "Vague"]},
+    {q: "Achieve", type: "반의어", ans: "Fail", wrong: ["Attain", "Reach", "Finish"]},
+    {q: "Active", type: "유의어", ans: "Energetic", wrong: ["Passive", "Idle", "Slow"]},
+    {q: "Add", type: "반의어", ans: "Subtract", wrong: ["Join", "Total", "Plus"]},
+    {q: "Adequate", type: "유의어", ans: "Sufficient", wrong: ["Lacking", "Poor", "Short"]},
+    {q: "Admire", type: "반의어", ans: "Despise", wrong: ["Respect", "Praise", "Love"]},
+    {q: "Admit", type: "유의어", ans: "Confess", wrong: ["Deny", "Hide", "Refuse"]},
+    {q: "Adult", type: "반의어", ans: "Child", wrong: ["Mature", "Grown", "Senior"]},
+    {q: "Advance", type: "유의어", ans: "Progress", wrong: ["Retreat", "Stop", "Back"]},
+    {q: "Advantage", type: "반의어", ans: "Disadvantage", wrong: ["Benefit", "Profit", "Gain"]},
+    {q: "Afraid", type: "유의어", ans: "Scared", wrong: ["Brave", "Bold", "Calm"]},
+    {q: "After", type: "반의어", ans: "Before", wrong: ["Next", "Later", "Past"]},
+    {q: "Against", type: "유의어", ans: "Opposed", wrong: ["For", "With", "Agree"]},
+    {q: "Agree", type: "반의어", ans: "Differ", wrong: ["Concur", "Assent", "Accept"]},
+    {q: "Aid", type: "유의어", ans: "Assist", wrong: ["Hinder", "Block", "Stop"]},
+    {q: "Alarm", type: "반의어", ans: "Calm", wrong: ["Fear", "Panic", "Alert"]},
+    {q: "Alike", type: "유의어", ans: "Similar", wrong: ["Different", "Unique", "Odd"]},
+    {q: "Alive", type: "반의어", ans: "Dead", wrong: ["Living", "Active", "Brisk"]},
+    {q: "Allow", type: "유의어", ans: "Permit", wrong: ["Forbid", "Block", "Deny"]},
+    {q: "Always", type: "반의어", ans: "Never", wrong: ["Forever", "Often", "Usually"]},
+    {q: "Amateur", type: "유의어", ans: "Beginner", wrong: ["Expert", "Pro", "Master"]},
+    {q: "Amuse", type: "반의어", ans: "Bore", wrong: ["Entertain", "Please", "Cheer"]},
+    {q: "Ancient", type: "유의어", ans: "Antique", wrong: ["Modern", "New", "Fresh"]},
+    {q: "Angry", type: "반의어", ans: "Content", wrong: ["Mad", "Furious", "Upset"]},
+    {q: "Annoy", type: "유의어", ans: "Irritate", wrong: ["Please", "Soothe", "Calm"]},
+    {q: "Answer", type: "반의어", ans: "Question", wrong: ["Reply", "State", "Solve"]},
+    {q: "Anxious", type: "유의어", ans: "Worried", wrong: ["Confident", "Calm", "Sure"]},
+    {q: "Apart", type: "반의어", ans: "Together", wrong: ["Away", "Separate", "Loose"]},
+    {q: "Appear", type: "유의어", ans: "Seem", wrong: ["Vanish", "Hide", "Gone"]},
+    {q: "Approve", type: "반의어", ans: "Reject", wrong: ["Allow", "Accept", "Favor"]},
+    {q: "Arrive", type: "유의어", ans: "Reach", wrong: ["Depart", "Leave", "Go"]},
+    {q: "Artificial", type: "반의어", ans: "Natural", wrong: ["Fake", "False", "Copy"]},
+    {q: "Ascend", type: "유의어", ans: "Climb", wrong: ["Descend", "Fall", "Drop"]},
+    {q: "Ask", type: "반의어", ans: "Answer", wrong: ["Query", "Beg", "Seek"]},
+    {q: "Asleep", type: "유의어", ans: "Napping", wrong: ["Awake", "Alert", "Lively"]},
+    {q: "Assemble", type: "반의어", ans: "Scatter", wrong: ["Gather", "Join", "Build"]},
+    {q: "Attack", type: "유의어", ans: "Assault", wrong: ["Defend", "Protect", "Save"]},
+    {q: "Attentive", type: "반의어", ans: "Careless", wrong: ["Alert", "Mindful", "Sharp"]},
+    {q: "Attractive", type: "유의어", ans: "Charming", wrong: ["Ugly", "Awful", "Plain"]},
+    {q: "Authentic", type: "반의어", ans: "Counterfeit", wrong: ["Real", "Genuine", "True"]},
+    {q: "Average", type: "유의어", ans: "Ordinary", wrong: ["Extreme", "Great", "Poor"]},
+    {q: "Awake", type: "반의어", ans: "Asleep", wrong: ["Alert", "Live", "Active"]},
+    {q: "Awful", type: "유의어", ans: "Terrible", wrong: ["Great", "Good", "Lovely"]},
+    {q: "Backward", type: "반의어", ans: "Forward", wrong: ["Behind", "Slow", "Past"]},
+    {q: "Bad", type: "유의어", ans: "Evil", wrong: ["Good", "Nice", "Pure"]},
+    {q: "Bare", type: "반의어", ans: "Covered", wrong: ["Naked", "Empty", "Plain"]},
+    {q: "Beautiful", type: "유의어", ans: "Lovely", wrong: ["Ugly", "Plain", "Messy"]},
+    {q: "Before", type: "반의어", ans: "After", wrong: ["Prior", "Past", "Early"]},
+    {q: "Begin", type: "유의어", ans: "Start", wrong: ["Finish", "End", "Stop"]},
+    {q: "Behind", type: "반의어", ans: "Ahead", wrong: ["Back", "After", "Past"]},
+    {q: "Believe", type: "유의어", ans: "Trust", wrong: ["Doubt", "Deny", "Reject"]},
+    {q: "Below", type: "반의어", ans: "Above", wrong: ["Under", "Down", "Lower"]},
+    {q: "Beneficial", type: "유의어", ans: "Helpful", wrong: ["Harmful", "Useless", "Bad"]},
+    {q: "Best", type: "반의어", ans: "Worst", wrong: ["Great", "Top", "Fine"]},
+    {q: "Better", type: "유의어", ans: "Improved", wrong: ["Worse", "Lower", "Poor"]},
+    {q: "Big", type: "반의어", ans: "Small", wrong: ["Large", "Huge", "Great"]},
+    {q: "Birth", type: "유의어", ans: "Origin", wrong: ["Death", "End", "Finish"]},
+    {q: "Bitter", type: "반의어", ans: "Sweet", wrong: ["Sour", "Sharp", "Hard"]},
+    {q: "Black", type: "유의어", ans: "Dark", wrong: ["White", "Light", "Bright"]},
+    {q: "Blame", type: "반의어", ans: "Praise", wrong: ["Fault", "Accuse", "Scold"]},
+    {q: "Bless", type: "유의어", ans: "Sanctify", wrong: ["Curse", "Damn", "Hate"]},
+    {q: "Blunt", type: "반의어", ans: "Sharp", wrong: ["Dull", "Plain", "Direct"]},
+    {q: "Bold", type: "유의어", ans: "Brave", wrong: ["Timid", "Shy", "Scared"]},
+    {q: "Borrow", type: "반의어", ans: "Lend", wrong: ["Take", "Keep", "Get"]},
+    {q: "Bottom", type: "유의어", ans: "Base", wrong: ["Top", "Peak", "High"]},
+    {q: "Brave", type: "반의어", ans: "Cowardly", wrong: ["Bold", "Daring", "Hard"]},
+    {q: "Brief", type: "유의어", ans: "Short", wrong: ["Long", "Slow", "Great"]},
+    {q: "Bright", type: "반의어", ans: "Dull", wrong: ["Shiny", "Light", "Clear"]},
+    {q: "Broad", type: "유의어", ans: "Wide", wrong: ["Narrow", "Thin", "Small"]},
+    {q: "Build", type: "반의어", ans: "Destroy", wrong: ["Create", "Make", "Form"]},
+    {q: "Busy", type: "유의어", ans: "Active", wrong: ["Idle", "Free", "Lazy"]},
+    {q: "Buy", type: "반의어", ans: "Sell", wrong: ["Get", "Purchase", "Take"]},
+    {q: "Calm", type: "유의어", ans: "Peaceful", wrong: ["Stormy", "Wild", "Mad"]},
+    {q: "Capable", type: "반의어", ans: "Unable", wrong: ["Able", "Skilled", "Smart"]},
+    {q: "Careful", type: "유의어", ans: "Cautious", wrong: ["Careless", "Rash", "Fast"]},
+    {q: "Catch", type: "반의어", ans: "Release", wrong: ["Seize", "Hold", "Get"]},
+    {q: "Center", type: "유의어", ans: "Middle", wrong: ["Edge", "Side", "Border"]},
+    {q: "Certain", type: "반의어", ans: "Doubtful", wrong: ["Sure", "Fixed", "Clear"]},
+    {q: "Change", type: "유의어", ans: "Alter", wrong: ["Keep", "Stay", "Fix"]},
+    {q: "Cheap", type: "반의어", ans: "Expensive", wrong: ["Low", "Poor", "Easy"]},
+    {q: "Cheerful", type: "유의어", ans: "Joyful", wrong: ["Gloomy", "Sad", "Dull"]},
+    {q: "Clear", type: "반의어", ans: "Vague", wrong: ["Plain", "Open", "Sure"]},
+    {q: "Clever", type: "유의어", ans: "Smart", wrong: ["Dumb", "Slow", "Foolish"]},
+    {q: "Close", type: "반의어", ans: "Open", wrong: ["Near", "Shut", "End"]},
+    {q: "Cold", type: "유의어", ans: "Chilly", wrong: ["Hot", "Warm", "Mild"]},
+    {q: "Combine", type: "반의어", ans: "Separate", wrong: ["Join", "Merge", "Unite"]},
+    {q: "Come", type: "유의어", ans: "Arrive", wrong: ["Go", "Leave", "Depart"]},
+    {q: "Complex", type: "반의어", ans: "Simple", wrong: ["Hard", "Deep", "Rich"]},
+    {q: "Confuse", type: "유의어", ans: "Puzzle", wrong: ["Clarify", "Solve", "Clear"]},
+    {q: "Connect", type: "반의어", ans: "Disconnect", wrong: ["Link", "Join", "Bond"]},
+    {q: "Correct", type: "유의어", ans: "Accurate", wrong: ["Wrong", "False", "Bad"]},
+    {q: "Coward", type: "반의어", ans: "Hero", wrong: ["Wimp", "Weak", "Shy"]},
+    {q: "Create", type: "유의어", ans: "Produce", wrong: ["Destroy", "Break", "End"]},
+    {q: "Cruel", type: "반의어", ans: "Kind", wrong: ["Harsh", "Mean", "Cold"]},
+    {q: "Curious", type: "유의어", ans: "Inquisitive", wrong: ["Bored", "Dull", "Flat"]},
+    {q: "Dark", type: "반의어", ans: "Bright", wrong: ["Black", "Dim", "Grim"]},
+    {q: "Decrease", type: "유의어", ans: "Reduce", wrong: ["Grow", "Rise", "Add"]},
+    {q: "Deep", type: "반의어", ans: "Shallow", wrong: ["Low", "Vast", "Dark"]},
+    {q: "Defeat", type: "유의어", ans: "Overcome", wrong: ["Lose", "Fail", "Give"]},
+    {q: "Delay", type: "반의어", ans: "Hurry", wrong: ["Wait", "Stall", "Hold"]},
+    {q: "Dense", type: "유의어", ans: "Thick", wrong: ["Thin", "Light", "Spare"]},
+    {q: "Deny", type: "반의어", ans: "Confirm", wrong: ["Refuse", "Reject", "Block"]},
+    {q: "Depart", type: "유의어", ans: "Leave", wrong: ["Arrive", "Come", "Stay"]},
+    {q: "Destroy", type: "반의어", ans: "Create", wrong: ["Ruin", "Break", "Wreck"]},
+    {q: "Different", type: "유의어", ans: "Distinct", wrong: ["Same", "Equal", "Alike"]},
+    {q: "Difficult", type: "반의어", ans: "Easy", wrong: ["Hard", "Tough", "Rough"]},
+    {q: "Dim", type: "유의어", ans: "Faint", wrong: ["Bright", "Clear", "Sharp"]},
+    {q: "Dirty", type: "반의어", ans: "Clean", wrong: ["Messy", "Foul", "Grimy"]},
+    {q: "Disagree", type: "유의어", ans: "Oppose", wrong: ["Accept", "Allow", "Concur"]},
+    {q: "Discover", type: "반의어", ans: "Conceal", wrong: ["Find", "Spot", "Learn"]},
+    {q: "Distant", type: "유의어", ans: "Remote", wrong: ["Near", "Close", "Local"]},
+    {q: "Divide", type: "반의어", ans: "Unite", wrong: ["Split", "Cut", "Break"]},
+    {q: "Double", type: "유의어", ans: "Twice", wrong: ["Half", "Once", "Single"]},
+    {q: "Doubt", type: "반의어", ans: "Trust", wrong: ["Suspect", "Query", "Wonder"]},
+    {q: "Dull", type: "유의어", ans: "Boring", wrong: ["Bright", "Sharp", "Keen"]},
+    {q: "Early", type: "반의어", ans: "Late", wrong: ["Soon", "Fast", "Quick"]},
+    {q: "Easy", type: "유의어", ans: "Simple", wrong: ["Hard", "Tough", "Complex"]},
+    {q: "Emotion", type: "반의어", ans: "Reason", wrong: ["Feeling", "Mood", "Sense"]},
+    {q: "Empty", type: "유의어", ans: "Vacant", wrong: ["Full", "Filled", "Rich"]},
+    {q: "End", type: "반의어", ans: "Begin", wrong: ["Stop", "Finish", "Close"]},
+    {q: "Enemy", type: "유의어", ans: "Foe", wrong: ["Friend", "Ally", "Buddy"]},
+    {q: "Enjoy", type: "반의어", ans: "Suffer", wrong: ["Like", "Love", "Relish"]},
+    {q: "Enter", type: "유의어", ans: "Join", wrong: ["Exit", "Leave", "Quit"]},
+    {q: "Equal", type: "반의어", ans: "Unequal", wrong: ["Same", "Fair", "Even"]},
+    {q: "Escape", type: "유의어", ans: "Flee", wrong: ["Stay", "Remain", "Catch"]},
+    {q: "Evil", type: "반의어", ans: "Good", wrong: ["Bad", "Dark", "Wrong"]},
+    {q: "Exact", type: "유의어", ans: "Precise", wrong: ["Vague", "Rough", "Loose"]},
+    {q: "Expand", type: "반의어", ans: "Shrink", wrong: ["Grow", "Widen", "Spread"]},
+    {q: "Fail", type: "유의어", ans: "Lose", wrong: ["Win", "Pass", "Succeed"]},
+    {q: "Fair", type: "반의어", ans: "Unfair", wrong: ["Just", "Equal", "Right"]},
+    {q: "Famous", type: "유의어", ans: "Known", wrong: ["Unknown", "Hidden", "Lost"]},
+    {q: "Fast", type: "반의어", ans: "Slow", wrong: ["Quick", "Swift", "Rapid"]},
+    {q: "Fear", type: "유의어", ans: "Dread", wrong: ["Courage", "Calm", "Hope"]},
+    {q: "Find", type: "반의어", ans: "Lose", wrong: ["Get", "Spot", "Seek"]},
+    {q: "Finish", type: "유의어", ans: "Complete", wrong: ["Start", "Begin", "Open"]},
+    {q: "Fix", type: "반의어", ans: "Break", wrong: ["Repair", "Mend", "Solve"]},
+    {q: "Flexible", type: "유의어", ans: "Bendable", wrong: ["Rigid", "Stiff", "Hard"]},
+    {q: "Follow", type: "반의어", ans: "Lead", wrong: ["Chase", "Track", "Copy"]},
+    {q: "Forget", type: "유의어", ans: "Neglect", wrong: ["Remember", "Recall", "Keep"]},
+    {q: "Free", type: "반의어", ans: "Bound", wrong: ["Open", "Loose", "Easy"]},
+    {q: "Fresh", type: "유의어", ans: "New", wrong: ["Old", "Stale", "Rotten"]},
+    {q: "Full", type: "반의어", ans: "Empty", wrong: ["Whole", "Complete", "Rich"]},
+    {q: "Funny", type: "유의어", ans: "Amusing", wrong: ["Sad", "Dull", "Grim"]},
+    {q: "Gain", type: "반의어", ans: "Lose", wrong: ["Get", "Win", "Earn"]},
+    {q: "General", type: "유의어", ans: "Common", wrong: ["Special", "Unique", "Rare"]},
+    {q: "Gentle", type: "반의어", ans: "Rough", wrong: ["Mild", "Soft", "Kind"]},
+    {q: "Give", type: "유의어", ans: "Grant", wrong: ["Take", "Get", "Keep"]},
+    {q: "Glad", type: "반의어", ans: "Sad", wrong: ["Happy", "Joyful", "Pleased"]},
+    {q: "Go", type: "유의어", ans: "Move", wrong: ["Stay", "Stop", "Rest"]},
+    {q: "Good", type: "반의어", ans: "Bad", wrong: ["Fine", "Great", "Nice"]},
+    {q: "Grow", type: "유의어", ans: "Expand", wrong: ["Shrink", "Fall", "Drop"]},
+    {q: "Happy", type: "반의어", ans: "Miserable", wrong: ["Glad", "Joyful", "Pleased"]},
+    {q: "Hard", type: "유의어", ans: "Firm", wrong: ["Soft", "Easy", "Weak"]},
+    {q: "Harm", type: "반의어", ans: "Help", wrong: ["Hurt", "Damage", "Injure"]},
+    {q: "Hate", type: "유의어", ans: "Despise", wrong: ["Love", "Like", "Enjoy"]},
+    {q: "Heavy", type: "반의어", ans: "Light", wrong: ["Dense", "Solid", "Thick"]},
+    {q: "Help", type: "유의어", ans: "Aid", wrong: ["Harm", "Block", "Hurt"]},
+    {q: "Hide", type: "반의어", ans: "Reveal", wrong: ["Cover", "Mask", "Bury"]},
+    {q: "High", type: "유의어", ans: "Tall", wrong: ["Low", "Short", "Deep"]},
+    {q: "Hold", type: "반의어", ans: "Release", wrong: ["Keep", "Grip", "Carry"]},
+    {q: "Honest", type: "유의어", ans: "Truthful", wrong: ["Fake", "False", "Lying"]},
+    {q: "Hot", type: "반의어", ans: "Cold", wrong: ["Warm", "Heated", "Burning"]},
+    {q: "Humble", type: "유의어", ans: "Modest", wrong: ["Proud", "Vain", "Arrogant"]},
+    {q: "Hurry", type: "반의어", ans: "Relax", wrong: ["Rush", "Speed", "Race"]},
+    {q: "Ignore", type: "유의어", ans: "Neglect", wrong: ["Notice", "Mind", "Heed"]},
+    {q: "Improve", type: "반의어", ans: "Worsen", wrong: ["Better", "Fix", "Raise"]},
+    {q: "Include", type: "유의어", ans: "Contain", wrong: ["Exclude", "Remove", "Drop"]},
+    {q: "Increase", type: "반의어", ans: "Decrease", wrong: ["Grow", "Rise", "Add"]},
+    {q: "Inner", type: "유의어", ans: "Internal", wrong: ["Outer", "External", "Open"]},
+    {q: "Innocent", type: "반의어", ans: "Guilty", wrong: ["Pure", "Clean", "Good"]},
+    {q: "Interesting", type: "유의어", ans: "Engaging", wrong: ["Boring", "Dull", "Flat"]},
+    {q: "Join", type: "반의어", ans: "Separate", wrong: ["Link", "Connect", "Merge"]},
+    {q: "Joy", type: "유의어", ans: "Delight", wrong: ["Grief", "Sorrow", "Pain"]},
+    {q: "Keep", type: "반의어", ans: "Discard", wrong: ["Hold", "Save", "Store"]},
+    {q: "Kind", type: "유의어", ans: "Gentle", wrong: ["Cruel", "Mean", "Harsh"]},
+    {q: "Know", type: "반의어", ans: "Ignore", wrong: ["Learn", "Grasp", "Recall"]},
+    {q: "Large", type: "유의어", ans: "Big", wrong: ["Small", "Tiny", "Short"]},
+    {q: "Last", type: "반의어", ans: "First", wrong: ["Final", "End", "Rear"]},
+    {q: "Laugh", type: "유의어", ans: "Chuckle", wrong: ["Cry", "Weep", "Sob"]},
+    {q: "Lazy", type: "반의어", ans: "Active", wrong: ["Idle", "Slow", "Tired"]},
+    {q: "Lead", type: "유의어", ans: "Guide", wrong: ["Follow", "Trail", "Copy"]},
+    {q: "Learn", type: "반의어", ans: "Forget", wrong: ["Study", "Grasp", "Know"]},
+    {q: "Leave", type: "유의어", ans: "Depart", wrong: ["Stay", "Remain", "Arrive"]},
+    {q: "Light", type: "반의어", ans: "Heavy", wrong: ["Bright", "Thin", "Pale"]},
+    {q: "Like", type: "유의어", ans: "Enjoy", wrong: ["Hate", "Dislike", "Loathe"]},
+    {q: "Limit", type: "반의어", ans: "Extend", wrong: ["Bound", "Cap", "Block"]},
+    {q: "Listen", type: "유의어", ans: "Hear", wrong: ["Ignore", "Miss", "Skip"]},
+    {q: "Little", type: "반의어", ans: "Much", wrong: ["Small", "Tiny", "Few"]},
+    {q: "Live", type: "유의어", ans: "Exist", wrong: ["Die", "End", "Stop"]},
+    {q: "Long", type: "반의어", ans: "Short", wrong: ["Tall", "Extended", "Far"]},
+    {q: "Lose", type: "유의어", ans: "Fail", wrong: ["Win", "Gain", "Find"]},
+    {q: "Love", type: "반의어", ans: "Hate", wrong: ["Like", "Adore", "Care"]},
+    {q: "Low", type: "유의어", ans: "Short", wrong: ["High", "Tall", "Great"]},
+    {q: "Lucky", type: "반의어", ans: "Unlucky", wrong: ["Fortunate", "Blessed", "Happy"]},
+    {q: "Make", type: "유의어", ans: "Create", wrong: ["Break", "Destroy", "Ruin"]},
+    {q: "Many", type: "반의어", ans: "Few", wrong: ["Much", "Most", "Lots"]},
+    {q: "Mean", type: "유의어", ans: "Cruel", wrong: ["Kind", "Gentle", "Nice"]},
+    {q: "Melt", type: "반의어", ans: "Freeze", wrong: ["Thaw", "Soften", "Dissolve"]},
+    {q: "Messy", type: "유의어", ans: "Untidy", wrong: ["Clean", "Neat", "Orderly"]},
+    {q: "Minor", type: "반의어", ans: "Major", wrong: ["Small", "Little", "Slight"]},
+    {q: "Miserable", type: "유의어", ans: "Wretched", wrong: ["Happy", "Joyful", "Glad"]},
+    {q: "Miss", type: "반의어", ans: "Hit", wrong: ["Skip", "Lose", "Pass"]},
+    {q: "Modern", type: "유의어", ans: "Current", wrong: ["Old", "Ancient", "Past"]},
+    {q: "More", type: "반의어", ans: "Less", wrong: ["Extra", "Added", "Plus"]},
+    {q: "Move", type: "유의어", ans: "Shift", wrong: ["Stay", "Stop", "Rest"]},
+    {q: "Narrow", type: "유의어", ans: "Slim", wrong: ["Wide", "Broad", "Large"]},
+    {q: "Natural", type: "반의어", ans: "Artificial", wrong: ["Real", "Wild", "Organic"]},
+    {q: "Near", type: "유의어", ans: "Close", wrong: ["Far", "Distant", "Remote"]},
+    {q: "Neat", type: "반의어", ans: "Messy", wrong: ["Clean", "Tidy", "Orderly"]},
+    {q: "Negative", type: "유의어", ans: "Bad", wrong: ["Positive", "Good", "Fine"]},
+    {q: "New", type: "반의어", ans: "Old", wrong: ["Fresh", "Recent", "Latest"]},
+    {q: "Night", type: "유의어", ans: "Darkness", wrong: ["Day", "Dawn", "Light"]},
+    {q: "Noisy", type: "반의어", ans: "Quiet", wrong: ["Loud", "Wild", "Sharp"]},
+    {q: "Normal", type: "유의어", ans: "Regular", wrong: ["Odd", "Strange", "Rare"]},
+    {q: "Notice", type: "반의어", ans: "Ignore", wrong: ["See", "Spot", "Find"]},
+    {q: "Odd", type: "유의어", ans: "Strange", wrong: ["Normal", "Even", "Common"]},
+    {q: "Old", type: "반의어", ans: "Young", wrong: ["Aged", "Elder", "Senior"]},
+    {q: "Open", type: "유의어", ans: "Unlock", wrong: ["Close", "Shut", "Seal"]},
+    {q: "Order", type: "반의어", ans: "Chaos", wrong: ["Rule", "Command", "List"]},
+    {q: "Pain", type: "유의어", ans: "Ache", wrong: ["Joy", "Pleasure", "Ease"]},
+    {q: "Partial", type: "반의어", ans: "Complete", wrong: ["Half", "Part", "Slight"]},
+    {q: "Patient", type: "유의어", ans: "Calm", wrong: ["Rash", "Hasty", "Eager"]},
+    {q: "Pay", type: "반의어", ans: "Receive", wrong: ["Give", "Spend", "Charge"]},
+    {q: "Peace", type: "유의어", ans: "Calm", wrong: ["War", "Conflict", "Chaos"]},
+    {q: "Permit", type: "반의어", ans: "Forbid", wrong: ["Allow", "Let", "Give"]},
+    {q: "Plain", type: "유의어", ans: "Simple", wrong: ["Fancy", "Rich", "Complex"]},
+    {q: "Play", type: "반의어", ans: "Work", wrong: ["Fun", "Game", "Sport"]},
+    {q: "Plenty", type: "유의어", ans: "Enough", wrong: ["Lack", "Few", "Scarce"]},
+    {q: "Polite", type: "반의어", ans: "Rude", wrong: ["Nice", "Gentle", "Kind"]},
+    {q: "Poor", type: "유의어", ans: "Needy", wrong: ["Rich", "Wealthy", "Fine"]},
+    {q: "Positive", type: "반의어", ans: "Negative", wrong: ["Good", "Plus", "True"]},
+    {q: "Power", type: "유의어", ans: "Force", wrong: ["Weak", "Soft", "None"]},
+    {q: "Praise", type: "반의어", ans: "Blame", wrong: ["Cheer", "Laud", "Honor"]},
+    {q: "Present", type: "유의어", ans: "Current", wrong: ["Past", "Old", "Gone"]},
+    {q: "Prevent", type: "반의어", ans: "Allow", wrong: ["Stop", "Block", "Halt"]},
+    {q: "Pride", type: "유의어", ans: "Honor", wrong: ["Shame", "Guilt", "Regret"]},
+    {q: "Private", type: "반의어", ans: "Public", wrong: ["Secret", "Hidden", "Inner"]},
+    {q: "Protect", type: "유의어", ans: "Guard", wrong: ["Attack", "Harm", "Hurt"]},
+    {q: "Pull", type: "반의어", ans: "Push", wrong: ["Drag", "Tug", "Draw"]},
+    {q: "Pure", type: "유의어", ans: "Clean", wrong: ["Dirty", "Messy", "Foul"]},
+    {q: "Push", type: "반의어", ans: "Pull", wrong: ["Drive", "Press", "Force"]},
+    {q: "Quick", type: "유의어", ans: "Fast", wrong: ["Slow", "Late", "Lazy"]},
+    {q: "Quiet", type: "반의어", ans: "Loud", wrong: ["Calm", "Still", "Low"]},
+    {q: "Raise", type: "유의어", ans: "Lift", wrong: ["Drop", "Lower", "Fall"]},
+    {q: "Rapid", type: "반의어", ans: "Slow", wrong: ["Fast", "Swift", "Quick"]},
+    {q: "Rare", type: "유의어", ans: "Unique", wrong: ["Common", "Normal", "Plain"]},
+    {q: "Raw", type: "반의어", ans: "Cooked", wrong: ["Rough", "Fresh", "Plain"]},
+    {q: "Real", type: "유의어", ans: "Genuine", wrong: ["Fake", "False", "Copy"]},
+    {q: "Refuse", type: "반의어", ans: "Accept", wrong: ["Deny", "Block", "Reject"]},
+    {q: "Relax", type: "유의어", ans: "Rest", wrong: ["Work", "Rush", "Stress"]},
+    {q: "Remove", type: "반의어", ans: "Add", wrong: ["Take", "Drop", "Cut"]},
+    {q: "Repeat", type: "유의어", ans: "Redo", wrong: ["Stop", "Quit", "End"]},
+    {q: "Respect", type: "반의어", ans: "Disrespect", wrong: ["Honor", "Esteem", "Value"]},
+    {q: "Rest", type: "유의어", ans: "Relax", wrong: ["Work", "Rush", "Labor"]},
+    {q: "Rich", type: "반의어", ans: "Poor", wrong: ["Wealthy", "Affluent", "Well"]},
+    {q: "Right", type: "유의어", ans: "Correct", wrong: ["Wrong", "Bad", "Left"]},
+    {q: "Rise", type: "반의어", ans: "Fall", wrong: ["Go", "Climb", "Grow"]},
+    {q: "Risk", type: "유의어", ans: "Danger", wrong: ["Safety", "Peace", "Calm"]},
+    {q: "Rough", type: "반의어", ans: "Smooth", wrong: ["Hard", "Wild", "Sharp"]},
+    {q: "Rude", type: "유의어", ans: "Impolite", wrong: ["Kind", "Gentle", "Nice"]},
+    {q: "Run", type: "반의어", ans: "Stop", wrong: ["Rush", "Speed", "Race"]},
+    {q: "Safe", type: "유의어", ans: "Secure", wrong: ["Risky", "Unsafe", "Exposed"]},
+    {q: "Same", type: "반의어", ans: "Different", wrong: ["Equal", "Like", "Alike"]},
+    {q: "Save", type: "유의어", ans: "Rescue", wrong: ["Waste", "Lose", "Spend"]},
+    {q: "Scared", type: "반의어", ans: "Brave", wrong: ["Afraid", "Timid", "Shy"]},
+    {q: "Search", type: "유의어", ans: "Seek", wrong: ["Find", "Miss", "Ignore"]},
+    {q: "Secret", type: "반의어", ans: "Public", wrong: ["Hidden", "Private", "Covert"]},
+    {q: "Send", type: "유의어", ans: "Deliver", wrong: ["Get", "Receive", "Keep"]},
+    {q: "Serious", type: "반의어", ans: "Playful", wrong: ["Grave", "Stern", "Deep"]},
+    {q: "Sharp", type: "유의어", ans: "Keen", wrong: ["Blunt", "Dull", "Soft"]},
+    {q: "Short", type: "반의어", ans: "Tall", wrong: ["Low", "Brief", "Small"]},
+    {q: "Show", type: "유의어", ans: "Display", wrong: ["Hide", "Cover", "Mask"]},
+    {q: "Shy", type: "반의어", ans: "Bold", wrong: ["Timid", "Quiet", "Calm"]},
+    {q: "Silent", type: "유의어", ans: "Quiet", wrong: ["Loud", "Noisy", "Wild"]},
+    {q: "Simple", type: "반의어", ans: "Complex", wrong: ["Easy", "Plain", "Basic"]},
+    {q: "Slow", type: "유의어", ans: "Sluggish", wrong: ["Fast", "Quick", "Rapid"]},
+    {q: "Small", type: "반의어", ans: "Large", wrong: ["Tiny", "Little", "Slim"]},
+    {q: "Smart", type: "유의어", ans: "Clever", wrong: ["Dumb", "Slow", "Foolish"]},
+    {q: "Smile", type: "반의어", ans: "Frown", wrong: ["Grin", "Laugh", "Beam"]},
+    {q: "Soft", type: "유의어", ans: "Gentle", wrong: ["Hard", "Rough", "Firm"]},
+    {q: "Solid", type: "반의어", ans: "Liquid", wrong: ["Hard", "Firm", "Dense"]},
+    {q: "Solve", type: "유의어", ans: "Fix", wrong: ["Create", "Make", "Start"]},
+    {q: "Sorrow", type: "반의어", ans: "Joy", wrong: ["Grief", "Pain", "Gloom"]},
+    {q: "Speed", type: "유의어", ans: "Pace", wrong: ["Slow", "Stop", "Rest"]},
+    {q: "Start", type: "반의어", ans: "End", wrong: ["Begin", "Open", "Launch"]},
+    {q: "Stay", type: "유의어", ans: "Remain", wrong: ["Go", "Leave", "Exit"]},
+    {q: "Stop", type: "반의어", ans: "Continue", wrong: ["End", "Halt", "Pause"]},
+    {q: "Strange", type: "유의어", ans: "Odd", wrong: ["Normal", "Common", "Plain"]},
+    {q: "Strength", type: "반의어", ans: "Weakness", wrong: ["Power", "Force", "Might"]},
+    {q: "Strict", type: "유의어", ans: "Firm", wrong: ["Loose", "Free", "Mild"]},
+    {q: "Strong", type: "반의어", ans: "Weak", wrong: ["Bold", "Hard", "Firm"]},
+    {q: "Stupid", type: "유의어", ans: "Foolish", wrong: ["Smart", "Clever", "Wise"]},
+    {q: "Success", type: "반의어", ans: "Failure", wrong: ["Win", "Gain", "Triumph"]},
+    {q: "Sweet", type: "유의어", ans: "Pleasant", wrong: ["Bitter", "Sour", "Sharp"]},
+    {q: "Take", type: "반의어", ans: "Give", wrong: ["Get", "Grab", "Hold"]},
+    {q: "Talk", type: "유의어", ans: "Speak", wrong: ["Listen", "Hear", "Read"]},
+    {q: "Teach", type: "반의어", ans: "Learn", wrong: ["Guide", "Show", "Train"]},
+    {q: "Thick", type: "유의어", ans: "Dense", wrong: ["Thin", "Slim", "Light"]},
+    {q: "Think", type: "반의어", ans: "React", wrong: ["Plan", "Reflect", "Muse"]},
+    {q: "Throw", type: "유의어", ans: "Toss", wrong: ["Catch", "Hold", "Keep"]},
+    {q: "Tiny", type: "반의어", ans: "Huge", wrong: ["Small", "Mini", "Little"]},
+    {q: "Together", type: "유의어", ans: "United", wrong: ["Apart", "Alone", "Separate"]},
+    {q: "Top", type: "반의어", ans: "Bottom", wrong: ["Peak", "High", "Above"]},
+    {q: "Tough", type: "유의어", ans: "Hard", wrong: ["Soft", "Easy", "Weak"]},
+    {q: "True", type: "반의어", ans: "False", wrong: ["Real", "Right", "Correct"]},
+    {q: "Trust", type: "유의어", ans: "Believe", wrong: ["Doubt", "Suspect", "Fear"]},
+    {q: "Try", type: "반의어", ans: "Quit", wrong: ["Attempt", "Seek", "Test"]},
+    {q: "Turn", type: "유의어", ans: "Rotate", wrong: ["Stay", "Fix", "Freeze"]},
+    {q: "Ugly", type: "반의어", ans: "Beautiful", wrong: ["Plain", "Harsh", "Dull"]},
+    {q: "Unclear", type: "유의어", ans: "Vague", wrong: ["Clear", "Sharp", "Plain"]},
+    {q: "Under", type: "반의어", ans: "Over", wrong: ["Below", "Down", "Beneath"]},
+    {q: "Unhappy", type: "유의어", ans: "Sad", wrong: ["Glad", "Joyful", "Content"]},
+    {q: "Unite", type: "반의어", ans: "Divide", wrong: ["Join", "Merge", "Link"]},
+    {q: "Unknown", type: "유의어", ans: "Mysterious", wrong: ["Famous", "Known", "Clear"]},
+    {q: "Useful", type: "반의어", ans: "Useless", wrong: ["Helpful", "Good", "Fine"]},
+    {q: "Vague", type: "유의어", ans: "Unclear", wrong: ["Clear", "Exact", "Sharp"]},
+    {q: "Various", type: "반의어", ans: "Same", wrong: ["Mixed", "Many", "Diverse"]},
+    {q: "Violent", type: "유의어", ans: "Fierce", wrong: ["Gentle", "Mild", "Calm"]},
+    {q: "Visible", type: "반의어", ans: "Hidden", wrong: ["Clear", "Open", "Plain"]},
+    {q: "Warm", type: "유의어", ans: "Hot", wrong: ["Cold", "Cool", "Chilly"]},
+    {q: "Waste", type: "반의어", ans: "Save", wrong: ["Spend", "Use", "Drain"]},
+    {q: "Weak", type: "유의어", ans: "Feeble", wrong: ["Strong", "Powerful", "Bold"]},
+    {q: "Wealthy", type: "반의어", ans: "Poor", wrong: ["Rich", "Well", "Affluent"]},
+    {q: "Wide", type: "유의어", ans: "Broad", wrong: ["Narrow", "Thin", "Slim"]},
+    {q: "Wild", type: "반의어", ans: "Tame", wrong: ["Free", "Rough", "Loud"]},
+    {q: "Win", type: "유의어", ans: "Succeed", wrong: ["Lose", "Fail", "Fall"]},
+    {q: "Wise", type: "반의어", ans: "Foolish", wrong: ["Smart", "Clever", "Keen"]},
+    {q: "Work", type: "유의어", ans: "Labor", wrong: ["Play", "Rest", "Fun"]},
+    {q: "Worse", type: "반의어", ans: "Better", wrong: ["Bad", "Poor", "Low"]},
+    {q: "Wrong", type: "유의어", ans: "Incorrect", wrong: ["Right", "True", "Good"]},
+    {q: "Young", type: "반의어", ans: "Old", wrong: ["New", "Fresh", "Early"]},
+    {q: "Zealous", type: "유의어", ans: "Eager", wrong: ["Dull", "Bored", "Lazy"]},
+    {q: "Fervent", type: "반의어", ans: "Apathetic", wrong: ["Eager", "Hot", "Ardent"]},
+    {q: "Gullible", type: "유의어", ans: "Naive", wrong: ["Skeptical", "Wise", "Smart"]},
+    {q: "Haggard", type: "반의어", ans: "Healthy", wrong: ["Tired", "Thin", "Pale"]},
+    {q: "Imminent", type: "유의어", ans: "Impending", wrong: ["Distant", "Far", "Past"]},
+    {q: "Jaded", type: "반의어", ans: "Fresh", wrong: ["Tired", "Bored", "Weary"]},
+    {q: "Kindred", type: "유의어", ans: "Related", wrong: ["Different", "Alien", "Lone"]},
+    {q: "Languid", type: "반의어", ans: "Vigorous", wrong: ["Slow", "Weak", "Dull"]},
+    {q: "Mirth", type: "유의어", ans: "Glee", wrong: ["Sorrow", "Gloom", "Misery"]},
+    {q: "Nadir", type: "반의어", ans: "Zenith", wrong: ["Bottom", "Floor", "Low"]},
+    {q: "Opulent", type: "유의어", ans: "Wealthy", wrong: ["Poor", "Cheap", "Plain"]},
+    {q: "Pensive", type: "반의어", ans: "Thoughtless", wrong: ["Dreamy", "Deep", "Sad"]},
+    {q: "Quivering", type: "유의어", ans: "Trembling", wrong: ["Still", "Solid", "Fixed"]},
+    {q: "Radiant", type: "반의어", ans: "Dark", wrong: ["Bright", "Glowing", "Clear"]},
+    {q: "Sullen", type: "유의어", ans: "Gloomy", wrong: ["Cheerful", "Happy", "Glad"]},
+    {q: "Tactful", type: "반의어", ans: "Rude", wrong: ["Polite", "Careful", "Wise"]},
+    {q: "Urgent", type: "유의어", ans: "Critical", wrong: ["Minor", "Trivial", "Slow"]},
+    {q: "Vex", type: "반의어", ans: "Soothe", wrong: ["Annoy", "Puzzle", "Tease"]},
+    {q: "Wistful", type: "유의어", ans: "Yearning", wrong: ["Happy", "Content", "Glad"]},
+    {q: "Yoke", type: "반의어", ans: "Freedom", wrong: ["Bond", "Chain", "Limit"]},
+    {q: "Zest", type: "유의어", ans: "Enthusiasm", wrong: ["Boredom", "Apathy", "Dullness"]},
+    {q: "Aptitude", type: "반의어", ans: "Inability", wrong: ["Talent", "Skill", "Gift"]},
+    {q: "Bleak", type: "유의어", ans: "Dismal", wrong: ["Bright", "Sunny", "Hopeful"]},
+    {q: "Cordial", type: "반의어", ans: "Cold", wrong: ["Warm", "Friendly", "Kind"]},
+    {q: "Deft", type: "유의어", ans: "Skillful", wrong: ["Clumsy", "Slow", "Awkward"]},
+    {q: "Eerie", type: "반의어", ans: "Ordinary", wrong: ["Spooky", "Strange", "Odd"]},
+    {q: "Fathom", type: "유의어", ans: "Understand", wrong: ["Misunderstand", "Lose", "Miss"]},
+    {q: "Gaunt", type: "반의어", ans: "Plump", wrong: ["Thin", "Pale", "Bony"]}
+];
+
+let score = 0;
+let life = 5;
+let combo = 1;
+let currentEnemy = null;
+let isGameOver = false;
+const enemyAreaHeight = window.innerHeight * 0.62;
+let drainTime = 8000; // ms enemy stays before hitting bottom
+
+function spawnEnemy() {
+    if (isGameOver || currentEnemy) return;
+
+    const data = wordData[Math.floor(Math.random() * wordData.length)];
+    const el = document.createElement('div');
+    el.className = 'enemy';
+    el.style.left = (Math.random() * 64 + 18) + '%';
+    el.style.top = '70px';
+
+    const typeClass = data.type === '유의어' ? 'type-syn' : 'type-ant';
+    el.innerHTML = `
+        <div class="enemy-inner">
+            <div class="corner corner-tl"></div>
+            <div class="corner corner-tr"></div>
+            <div class="corner corner-bl"></div>
+            <div class="corner corner-br"></div>
+            <div class="enemy-box">
+                <span class="target-type ${typeClass}">${data.type}</span>
+                <span class="target-word">${data.q}</span>
+                <div class="enemy-bar-wrap">
+                    <div class="enemy-bar" style="animation-duration:${drainTime}ms"></div>
+                </div>
+            </div>
+        </div>`;
+
+    document.getElementById('game-screen').appendChild(el);
+
+    const choices = [data.ans, ...data.wrong].sort(() => Math.random() - 0.5);
+    const btns = document.querySelectorAll('.choice-btn');
+    btns.forEach((btn, i) => {
+        btn.textContent = choices[i];
+        btn.className = 'choice-btn';
+        btn.disabled = false;
+    });
+
+    const speed = 1.0 + (score / 500);
+    currentEnemy = { el, data, y: 70, speed };
+    drainTime = Math.max(4000, 9000 - score * 8);
+}
+
+function update() {
+    if (isGameOver) return;
+    if (currentEnemy) {
+        currentEnemy.y += currentEnemy.speed;
+        currentEnemy.el.style.top = currentEnemy.y + 'px';
+        if (currentEnemy.y > enemyAreaHeight) {
+            removeEnemy(false);
+            takeDamage();
+        }
+    } else {
+        spawnEnemy();
+    }
+    requestAnimationFrame(update);
+}
+
+function checkAnswer(btn) {
+    if (!currentEnemy || isGameOver) return;
+    if (btn.textContent === currentEnemy.data.ans) {
+        combo++;
+        const pts = 20 * Math.min(combo, 5);
+        score += pts;
+        btn.classList.add('correct');
+        spawnFloatScore('+' + pts, currentEnemy.el);
+        spawnParticles(currentEnemy.el, '#06d6a0');
+        flashScreen('good');
+        removeEnemy(true);
+        updateHUD();
+    } else {
+        combo = 1;
+        btn.classList.add('wrong');
+        flashScreen('red');
+        takeDamage();
+    }
+    updateHUD();
+}
+
+function takeDamage() {
+    life--;
+    updateHUD();
+    if (life <= 0) {
+        gameOver();
+    } else if (currentEnemy) {
+        removeEnemy(false);
+    }
+}
+
+function removeEnemy(isSuccess) {
+    if (!currentEnemy) return;
+    const tempEl = currentEnemy.el;
+    if (isSuccess) {
+        tempEl.style.transition = '0.3s all cubic-bezier(0.4,0,0.2,1)';
+        tempEl.style.transform = 'translateX(-50%) scale(1.15)';
+        tempEl.style.opacity = '0';
+        setTimeout(() => tempEl.remove(), 300);
+    } else {
+        tempEl.remove();
+    }
+    currentEnemy = null;
+}
+
+function updateHUD() {
+    document.getElementById('score-val').textContent = score;
+    document.getElementById('life-val').textContent = life > 0 ? '❤️'.repeat(life) : '💔';
+    document.getElementById('combo-val').textContent = combo > 1 ? `×${combo}` : '×1';
+}
+
+function flashScreen(cls) {
+    const f = document.getElementById('flash');
+    f.className = '';
+    void f.offsetWidth; // reflow
+    f.className = cls;
+}
+
+function spawnParticles(enemyEl, color) {
+    const rect = enemyEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const gs = document.getElementById('game-screen');
+    for (let i = 0; i < 10; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = cx + 'px';
+        p.style.top = cy + 'px';
+        p.style.background = color;
+        const angle = (Math.random() * 360) * Math.PI / 180;
+        const dist = 30 + Math.random() * 60;
+        p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+        p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+        p.style.animationDelay = (Math.random() * 0.1) + 's';
+        gs.appendChild(p);
+        setTimeout(() => p.remove(), 800);
+    }
+}
+
+function spawnFloatScore(text, enemyEl) {
+    const rect = enemyEl.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'float-score';
+    el.textContent = text;
+    el.style.left = (rect.left + rect.width / 2) + 'px';
+    el.style.top = (rect.top - 10) + 'px';
+    document.getElementById('game-screen').appendChild(el);
+    setTimeout(() => el.remove(), 900);
+}
+
+function gameOver() {
+    isGameOver = true;
+    document.getElementById('overlay').style.display = 'flex';
+    document.getElementById('final-score').textContent = score;
+    if (currentEnemy) currentEnemy.el.remove();
+}
+
+updateHUD();
+update();
+</script>
+</body>
+</html>
